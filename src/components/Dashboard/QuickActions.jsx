@@ -1,4 +1,5 @@
-const QuickActions = ({ onRegisterClick, onInspectClick,onViewAllFarmersClick }) => {
+import { Link } from "react-router-dom";
+const QuickActions = ({ onRegisterClick, onInspectClick }) => {
     return (
         <div className="bg-white rounded-lg shadow-md p-6">
             <h2 className="text-xl font-semibold mb-4">Quick Actions</h2>
@@ -15,12 +16,12 @@ const QuickActions = ({ onRegisterClick, onInspectClick,onViewAllFarmersClick })
                 >
                     Start Inspection
                 </button>
-                <button className="w-full py-3 rounded-lg text-white font-semibold bg-gray-600 hover:bg-gray-700 transition duration-300"
-                    onClick={onViewAllFarmersClick}
+                <Link
+                    to="/farmers"
+                    className="w-full block py-3 rounded-lg text-center text-white font-semibold bg-gray-600 hover:bg-gray-700 transition duration-300 shadow-md"
                 >
-                    
                     View All Farmers
-                </button>
+                </Link>
             </div>
         </div>
     );

@@ -1,35 +1,82 @@
-import { useState } from 'react';
-import Modal from '../app/Modal';
+import { useState, useEffect } from "react";
+import Modal from "../app/Modal";
+import { FaDownload } from "react-icons/fa";
+import { startInspection, submitInspection } from "../../utils/api";
+import axios from "axios";
 
-const InspectionModal = ({ isOpen, onClose }) => {
+const InspectionModal = ({ isOpen, onClose, farmId }) => {
   const [answers, setAnswers] = useState([
     { id: 1, text: "Any synthetic inputs in the last 36 months?", value: null },
-    { id: 2, text: " Are there Adequate buffer zones? ?", value: null },
-    { id: 3, text: " Are Organic seed Used ?", value: null },
-    { id: 4, text: "is soil fertility managed organically? ", value: null },
-    { id: 5, text: "Is  Recordkeeping Available?", value: null }
+    { id: 2, text: "Are there Adequate buffer zones?", value: null },
+    { id: 3, text: "Are Organic seeds used?", value: null },
+    { id: 4, text: "Is soil fertility managed organically?", value: null },
+    { id: 5, text: "Is recordkeeping available?", value: null },
   ]);
-   const [complianceScore, setComplianceScore] = useState(null);
+  const [inspectionId, setInspectionId] = useState(null);
+  const [complianceScore, setComplianceScore] = useState(null);
+  const [status, setStatus] = useState(null);
   const [showResults, setShowResults] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [certificateId, setCertificateId] = useState(null);
+
+
+  
+ const API_BASE = "https://organic-certification-backend-production.up.railway.app/organic-certified";
+
+
+
+  useEffect(() => {
+    const initInspection = async () => {
+      if (!isOpen) return;
+      try {
+        const { data } = await startInspection({ farmId });
+        console.log("Inspection started with ID:", data.id);
+
+        setInspectionId(data.id);
+      } catch (err) {
+        console.error("Failed to start inspection:", err);
+      }
+    };
+    initInspection();
+  }, [isOpen, farmId]);
 
   const handleAnswer = (questionId, value) => {
-    setAnswers(answers.map(q => q.id === questionId ? { ...q, value } : q));
+    setAnswers((prev) =>
+      prev.map((q) => (q.id === questionId ? { ...q, value } : q))
+    );
   };
 
   const handleSubmit = async () => {
-    const isComplete = answers.every(q => q.value !== null);
+    const isComplete = answers.every((q) => q.value !== null);
     if (!isComplete) {
       alert("Please answer all questions before submitting.");
       return;
     }
+    if (!inspectionId) {
+      alert("Inspection not initialized. Try reopening the modal.");
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const result = await getComplianceScore(answers);
-      setComplianceScore(result.score);
+      const submissionPayload = {
+        answers: answers.map((q) => q.value === "Yes"),
+      };
+
+      const { data } = await submitInspection(inspectionId, submissionPayload);
+
+      setComplianceScore(data.complianceScore);
+      setStatus(data.status);
+       if (data.status === "APPROVED") {
+      const certRes = await axios.post(`${API_BASE}/certificate`, {
+        farmId,   // pass current farmId
+      });
+      setCertificateId(certRes.data.id); // save certificateId
+    }
       setShowResults(true);
-    } catch (error) {
-      console.error("Failed to get compliance score:", error);
+    } catch (err) {
+      console.error("Failed to submit inspection:", err);
+      alert("Something went wrong while submitting.");
     } finally {
       setIsLoading(false);
     }
@@ -37,14 +84,14 @@ const InspectionModal = ({ isOpen, onClose }) => {
 
   const handleClose = () => {
     onClose();
-    // Reset modal state
-    setAnswers(answers.map(q => ({ ...q, value: null })));
+    setAnswers((prev) => prev.map((q) => ({ ...q, value: null })));
     setComplianceScore(null);
+    setStatus(null);
+    setInspectionId(null);
     setShowResults(false);
     setIsLoading(false);
   };
 
-  // src/components/InspectionModal.jsx (continued)
   const renderContent = () => {
     if (isLoading) {
       return (
@@ -67,28 +114,31 @@ const InspectionModal = ({ isOpen, onClose }) => {
             </span>
           </div>
           <p className="text-gray-600 mb-6">
-            {complianceScore >= 80 
-              ? "Congratulations! Your farm meets all compliance standards." 
+            {status === "APPROVED"
+              ? "Congratulations! Your farm meets compliance standards."
               : "Further improvements are required to meet full compliance."}
           </p>
 
-          {/* Certificate Download Section */}
-          <div className="bg-gray-50 rounded-lg p-4 mt-6">
-            <h4 className="text-lg font-semibold text-gray-800 mb-2">
-              Download Your Certificate
-            </h4>
-            <a 
-              href="/path/to/dummy-certificate.pdf" // Use a real endpoint here
-              download="compliance-certificate.pdf"
-              className="inline-flex items-center justify-center space-x-2 py-2 px-4 rounded-md shadow-sm text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 transition"
-            >
-              <FaDownload />
-              <span>Download Certificate</span>
-            </a>
-            <p className="text-xs text-gray-500 mt-2">
-              This certificate verifies your compliance score.
-            </p>
-          </div>
+          {certificateId && (
+            <div className="bg-gray-50 rounded-lg p-4 mt-6">
+              <h4 className="text-lg font-semibold text-gray-800 mb-2">
+                Download Your Certificate
+              </h4>
+              <a
+                href={`${API_BASE}/certificate/download/${certificateId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center space-x-2 py-2 px-4 rounded-md shadow-sm text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 transition"
+              >
+                <FaDownload />
+                <span>Download Certificate</span>
+              </a>
+              <p className="text-xs text-gray-500 mt-2">
+                This certificate verifies your compliance score.
+              </p>
+            </div>
+          )}
+
           <div className="mt-6">
             <button
               onClick={handleClose}
@@ -101,23 +151,35 @@ const InspectionModal = ({ isOpen, onClose }) => {
       );
     }
 
-    // Default view: checklist
     return (
       <>
         <ul className="space-y-4">
           {answers.map((q) => (
-            <li key={q.id} className="flex flex-col md:flex-row items-center justify-between p-2 border-b border-gray-200">
-              <span className="text-gray-800 text-base font-medium mb-2 md:mb-0">{q.text}</span>
+            <li
+              key={q.id}
+              className="flex flex-col md:flex-row items-center justify-between p-2 border-b border-gray-200"
+            >
+              <span className="text-gray-800 text-base font-medium mb-2 md:mb-0">
+                {q.text}
+              </span>
               <div className="flex space-x-2">
                 <button
-                  onClick={() => handleAnswer(q.id, 'Yes')}
-                  className={`py-1 px-4 rounded-full text-sm font-medium transition ${q.value === 'Yes' ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-green-100 hover:text-green-700'}`}
+                  onClick={() => handleAnswer(q.id, "Yes")}
+                  className={`py-1 px-4 rounded-full text-sm font-medium transition ${
+                    q.value === "Yes"
+                      ? "bg-green-500 text-white"
+                      : "bg-gray-200 text-gray-700 hover:bg-green-100 hover:text-green-700"
+                  }`}
                 >
                   Yes
                 </button>
                 <button
-                  onClick={() => handleAnswer(q.id, 'No')}
-                  className={`py-1 px-4 rounded-full text-sm font-medium transition ${q.value === 'No' ? 'bg-red-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-red-100 hover:text-red-700'}`}
+                  onClick={() => handleAnswer(q.id, "No")}
+                  className={`py-1 px-4 rounded-full text-sm font-medium transition ${
+                    q.value === "No"
+                      ? "bg-red-500 text-white"
+                      : "bg-gray-200 text-gray-700 hover:bg-red-100 hover:text-red-700"
+                  }`}
                 >
                   No
                 </button>
@@ -134,7 +196,12 @@ const InspectionModal = ({ isOpen, onClose }) => {
           </button>
           <button
             onClick={handleSubmit}
-            className="py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none"
+            disabled={!inspectionId || isLoading}
+            className={`py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white ${
+              !inspectionId
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-green-600 hover:bg-green-700"
+            } focus:outline-none`}
           >
             Submit
           </button>
