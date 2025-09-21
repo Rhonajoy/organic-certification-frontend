@@ -1,8 +1,13 @@
 import { useState, useEffect } from "react";
 import Modal from "../app/Modal";
 import { FaDownload } from "react-icons/fa";
-import { startInspection, submitInspection } from "../../utils/api";
-import axios from "axios";
+import {
+  createcertificate,
+  startInspection,
+  submitInspection,
+  getCertificateDownloadUrl,
+} from "../../utils/api";
+import { toast } from "react-toastify";
 
 const InspectionModal = ({ isOpen, onClose, farmId }) => {
   const [answers, setAnswers] = useState([
@@ -19,22 +24,15 @@ const InspectionModal = ({ isOpen, onClose, farmId }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [certificateId, setCertificateId] = useState(null);
 
-
-  
- const API_BASE = "https://organic-certification-backend-production.up.railway.app/organic-certified";
-
-
-
   useEffect(() => {
     const initInspection = async () => {
       if (!isOpen) return;
       try {
         const { data } = await startInspection({ farmId });
-        console.log("Inspection started with ID:", data.id);
-
         setInspectionId(data.id);
       } catch (err) {
         console.error("Failed to start inspection:", err);
+        toast.error("Failed to start inspection. Please try again.");
       }
     };
     initInspection();
@@ -49,11 +47,12 @@ const InspectionModal = ({ isOpen, onClose, farmId }) => {
   const handleSubmit = async () => {
     const isComplete = answers.every((q) => q.value !== null);
     if (!isComplete) {
-      alert("Please answer all questions before submitting.");
+      toast.error("Please answer all questions before submitting.");
       return;
     }
+
     if (!inspectionId) {
-      alert("Inspection not initialized. Try reopening the modal.");
+      toast.error("Inspection not initialized. Try reopening the modal.");
       return;
     }
 
@@ -67,17 +66,20 @@ const InspectionModal = ({ isOpen, onClose, farmId }) => {
 
       setComplianceScore(data.complianceScore);
       setStatus(data.status);
-       if (data.status === "APPROVED") {
-      const certRes = await axios.post(`${API_BASE}/certificate`, {
-        farmId,
-         inspectionId: inspectionId,   // pass current farmId
-      });
-      setCertificateId(certRes.data.id); // save certificateId
-    }
+
+      if (data.status === "APPROVED") {
+        const certRes = await createcertificate({
+          farmId,
+          inspectionId,
+        });
+        setCertificateId(certRes.data.id);
+      }
+
+      toast.success("Inspection submitted successfully!");
       setShowResults(true);
     } catch (err) {
       console.error("Failed to submit inspection:", err);
-      alert("Something went wrong while submitting.");
+      toast.error("Something went wrong while submitting the inspection.");
     } finally {
       setIsLoading(false);
     }
@@ -91,6 +93,7 @@ const InspectionModal = ({ isOpen, onClose, farmId }) => {
     setInspectionId(null);
     setShowResults(false);
     setIsLoading(false);
+    setCertificateId(null);
   };
 
   const renderContent = () => {
@@ -117,7 +120,7 @@ const InspectionModal = ({ isOpen, onClose, farmId }) => {
           <p className="text-gray-600 mb-6">
             {status === "APPROVED"
               ? "Congratulations! Your farm meets compliance standards."
-              : "Further improvements are required to meet full compliance."}
+              : "Further improvements are required to meet full compliance so as to get the Compliance Certificate"}
           </p>
 
           {certificateId && (
@@ -126,7 +129,7 @@ const InspectionModal = ({ isOpen, onClose, farmId }) => {
                 Download Your Certificate
               </h4>
               <a
-                href={`${API_BASE}/certificate/download/${certificateId}`}
+                href={getCertificateDownloadUrl(certificateId)}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center space-x-2 py-2 px-4 rounded-md shadow-sm text-sm font-medium text-white bg-blue-500 hover:bg-blue-600 transition"

@@ -1,51 +1,43 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import axios from "axios";
+import { FaPlus,FaRocket } from "react-icons/fa";
+import Icon from "../app/Icon";
 import Loader from "../app/Loader";
 import RegisterFarmModal from "./RegisterFarmModal";
 import RegisterFieldModal from "./RegisterFieldModal";
-import InspectionModal from "./InspectionModal"; // ✅ import inspection modal
-
-const API_BASE =
-  "https://organic-certification-backend-production.up.railway.app/organic-certified";
+import InspectionModal from "./InspectionModal";
+import { getFarmers, getFarmsByFarmer, getFieldsByFarm } from "../../utils/api";
+import Sidebar from "../Dashboard/Sidebar";
 
 const Farmers = () => {
   const [farmers, setFarmers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // For modals
-  const [openModal, setOpenModal] = useState(null); // "farm" | "field"
+  const [openModal, setOpenModal] = useState(null);
   const [selectedFarmerId, setSelectedFarmerId] = useState(null);
   const [selectedFarmId, setSelectedFarmId] = useState(null);
+  const [inspectionFarmId, setInspectionFarmId] = useState(null);
 
-  // For inspection modal
-  const [openInspectionFarmId, setOpenInspectionFarmId] = useState(null);
+  const [expandedFarmers, setExpandedFarmers] = useState({});
 
   const fetchFarmers = async () => {
     try {
       setLoading(true);
+      setError(null);
 
-      // 1. Get all farmers
-      const farmerRes = await axios.get(`${API_BASE}/farmers`);
+      const farmerRes = await getFarmers();
       const farmersData = farmerRes.data.content || [];
 
-      // 2. For each farmer, fetch their farms
       const farmersWithFarms = await Promise.all(
         farmersData.map(async (farmer) => {
           try {
-            const farmRes = await axios.get(
-              `${API_BASE}/farms/farmer/${farmer.id}`
-            );
+            const farmRes = await getFarmsByFarmer(farmer.id);
             const farms = farmRes.data.content || [];
 
-            // 3. For each farm, fetch its fields
             const farmsWithFields = await Promise.all(
               farms.map(async (farm) => {
                 try {
-                  const fieldRes = await axios.get(
-                    `${API_BASE}/fields/farm/${farm.id}`
-                  );
+                  const fieldRes = await getFieldsByFarm(farm.id);
                   return { ...farm, fields: fieldRes.data.content || [] };
                 } catch {
                   return { ...farm, fields: [] };
@@ -72,137 +64,180 @@ const Farmers = () => {
     fetchFarmers();
   }, []);
 
+  const toggleExpanded = (farmerId) => {
+    setExpandedFarmers((prev) => ({
+      ...prev,
+      [farmerId]: !prev[farmerId],
+    }));
+  };
+
   if (loading) return <Loader text="Fetching farmers..." />;
   if (error) return <p className="p-6 text-red-600">Error: {error}</p>;
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-semibold text-gray-800">All Farmers</h1>
-        <Link
-          to="/"
-          className="py-2 px-4 rounded-md text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition"
-        >
-          &larr; Back to Dashboard
-        </Link>
-      </div>
+    <div className="flex min-h-screen bg-green-50">
+      <Sidebar />
 
-      <div className="bg-white rounded-lg shadow-md overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Farmer
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Farms & Fields
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {farmers.map((farmer) => (
-              <tr key={farmer.id}>
-                {/* Farmer Info */}
-                <td className="px-6 py-4 text-sm font-medium text-gray-900">
-                  {farmer.name}
-                </td>
+      <div className="flex-1 p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-semibold text-gray-800">All Farmers</h1>
+        </div>
 
-                {/* Farms + Fields */}
-                <td className="px-6 py-4 text-sm text-gray-500">
-                  {farmer.farms && farmer.farms.length > 0 ? (
-                    <ul className="list-disc list-inside">
-                      {farmer.farms.map((farm) => (
-                        <li key={farm.id} className="mb-2">
-                          <div className="font-semibold flex items-center gap-2">
-                            {farm.farmName} - {farm.location}
-                            <button
-                              onClick={() => {
-                                setSelectedFarmId(farm.id);
-                                setOpenModal("field");
-                              }}
-                              className="ml-2 text-blue-600 hover:text-blue-800 text-xs"
-                            >
-                              + Add Field
-                            </button>
-                            <button
-                              onClick={() => setOpenInspectionFarmId(farm.id)}
-                              className="ml-2 text-indigo-600 hover:text-indigo-800 text-xs"
-                            >
-                              🚀 Start Inspection
-                            </button>
-                          </div>
+        <div className="space-y-6">
+          {farmers.length === 0 && (
+            <p className="text-gray-500 italic">No farmers found.</p>
+          )}
 
-                          {/* Fields under farm */}
-                          {farm.fields && farm.fields.length > 0 ? (
-                            <ul className="ml-6 list-square list-inside text-gray-700">
-                              {farm.fields.map((field) => (
-                                <li key={field.id}>
-                                  {field.fieldName} – {field.crop} ({field.areaHa} Ha)
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p className="ml-6 text-gray-400 italic">
-                              No fields yet
-                            </p>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-gray-400 italic">No farms yet</p>
-                  )}
-                </td>
-
-                {/* Actions */}
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
+          {farmers.map((farmer) => (
+            <div key={farmer.id} className="bg-white rounded-lg shadow-md">
+              <div
+                className="flex justify-between items-center p-4 border-b border-gray-200 cursor-pointer"
+                onClick={() => toggleExpanded(farmer.id)}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-xl font-bold text-gray-800">
+                    {farmer.name}
+                  </span>
+                  <span className="text-sm text-gray-500">
+                    ({farmer.farms?.length || 0} Farms)
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       setSelectedFarmerId(farmer.id);
                       setOpenModal("farm");
                     }}
-                    className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+                    className="py-1 px-3 text-sm rounded-md font-medium text-white bg-green-600 hover:bg-green-700 transition"
                   >
-                    + Add Farm
+                    <div className="flex gap-1"> 
+                    <FaPlus />
+                    <p>  Add Farm</p>
+                    </div>
+                   
                   </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                  <svg
+                    className={`w-5 h-5 text-gray-400 transform transition-transform ${
+                      expandedFarmers[farmer.id] ? "rotate-180" : ""
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </div>
+              </div>
+
+              {expandedFarmers[farmer.id] && (
+                <div className="p-4 space-y-4">
+                  {farmer.farms.length === 0 && (
+                    <p className="text-gray-400 italic">
+                      No farms registered for this farmer.
+                    </p>
+                  )}
+
+                  {farmer.farms.map((farm) => (
+                    <div
+                      key={farm.id}
+                      className="bg-gray-50 p-3 rounded-md border border-gray-200"
+                    >
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-gray-700">
+                            {farm.farmName}
+                          </span>
+                          <span className="text-sm text-gray-500">
+                            - {farm.location}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedFarmId(farm.id);
+                              setOpenModal("field");
+                            }}
+                            className="py-1 px-2 text-xs rounded-md font-medium text-blue-600 hover:text-blue-800 transition"
+                          >
+                            + Add Field
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setInspectionFarmId(farm.id);
+                            }}
+                            className="py-1 px-2 text-xs rounded-md font-medium text-indigo-600 hover:text-indigo-800 transition"
+                          >
+                           <div className="flex gap-1">
+                          
+
+                       <Icon as={FaRocket}  />
+
+
+                            <p>Start Inspection</p>
+
+                           </div>
+                          </button>
+                        </div>
+                      </div>
+
+                      {farm.fields.length === 0 ? (
+                        <p className="mt-2 ml-4 text-sm text-gray-400 italic">
+                          No fields registered for this farm.
+                        </p>
+                      ) : (
+                        <ul className="mt-2 ml-4 list-disc space-y-1 text-gray-600">
+                          {farm.fields.map((field) => (
+                            <li key={field.id}>
+                              <strong>{field.name}</strong> - {field.crop} (
+                              {field.areaHa} Ha)
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <RegisterFarmModal
+          isOpen={openModal === "farm"}
+          onClose={() => {
+            setOpenModal(null);
+            fetchFarmers();
+          }}
+          farmerId={selectedFarmerId}
+        />
+
+        <RegisterFieldModal
+          isOpen={openModal === "field"}
+          onClose={() => {
+            setOpenModal(null);
+            fetchFarmers();
+          }}
+          farmId={selectedFarmId}
+        />
+
+        <InspectionModal
+          isOpen={!!inspectionFarmId}
+          onClose={() => {
+            setInspectionFarmId(null);
+            fetchFarmers();
+          }}
+          farmId={inspectionFarmId}
+        />
       </div>
-
-      {/* Modals */}
-      <RegisterFarmModal
-        isOpen={openModal === "farm"}
-        onClose={() => {
-          setOpenModal(null);
-          fetchFarmers();
-        }}
-        farmerId={selectedFarmerId}
-      />
-
-      <RegisterFieldModal
-        isOpen={openModal === "field"}
-        onClose={() => {
-          setOpenModal(null);
-          fetchFarmers();
-        }}
-        farmId={selectedFarmId}
-      />
-
-      {/* 🔹 Inspection Modal */}
-      <InspectionModal
-        isOpen={!!openInspectionFarmId}
-        onClose={() => {
-          setOpenInspectionFarmId(null);
-          fetchFarmers(); // refresh inspection status after closing
-        }}
-        farmId={openInspectionFarmId}
-      />
     </div>
   );
 };

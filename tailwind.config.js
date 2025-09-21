@@ -7,7 +7,7 @@ content: [
   theme: {
     extend: {
      fontFamily: {
-        inter: ['Inter', 'sans-serif'],
+        inter: ['Open Sans', 'sans-serif'],
       },
     },
   },
