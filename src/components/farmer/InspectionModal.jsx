@@ -69,7 +69,8 @@ const InspectionModal = ({ isOpen, onClose, farmId }) => {
       setStatus(data.status);
        if (data.status === "APPROVED") {
       const certRes = await axios.post(`${API_BASE}/certificate`, {
-        farmId,   // pass current farmId
+        farmId,
+         inspectionId: inspectionId,   // pass current farmId
       });
       setCertificateId(certRes.data.id); // save certificateId
     }
