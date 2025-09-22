@@ -73,71 +73,9 @@ Backend Link `https://github.com/Rhonajoy/organic-certification-backend`
 Api Documentation `https://organic-certification-backend-production.up.railway.app/swagger-ui/index.html`
 
 ##  System Workflow
-sequenceDiagram
-    actor U as Agronomist (User)
-    participant F as Frontend (React/Vite)
-    participant FB as Firebase Auth
-    participant B as Backend (Spring Boot)
-    participant DB as Database
-    participant I as Inspection Service
-    participant C as Certificate Service
+![Sequence Diagram](./docs/Organic-certified.png)
 
-    %% User account registration
-    U ->> F: Register account (email/password)
-    F ->> FB: Create Firebase account
-    FB -->> F: Firebase UID
-    F ->> B: Save Agronomist profile (UID, name, details)
-    B ->> DB: Store Agronomist
-    DB -->> B: Agronomist created
-    B -->> F: Agronomist profile saved
-
-     %% Farmer registration
-    U ->> F: Register Farmer
-    F ->> B: Submit farmer details
-    B ->> DB: Save farmer
-    DB -->> B: Farmer created
-    B -->> F: Farmer registration success
-
-    %% Farm registration
-    U ->> F: Register Farm
-    F ->> B: Submit farm details
-    B ->> DB: Save farm linked to farmer
-    DB -->> B: Farm created
-    B -->> F: Farm registration success
-
-    %% Field registration
-    U ->> F: Register Field (for a specific farm)
-    F ->> B: Submit field details
-    B ->> DB: Save field linked to farm
-    DB -->> B: Field created
-    B -->> F: Field registration success
-
-    %% Login
-    U ->> F: Login
-    F ->> FB: Authenticate user
-    FB -->> F: Firebase ID Token
-    F ->> B: Send ID Token
-    B ->> FB: Verify Token
-    FB -->> B: Valid token
-    B -->> F: Login success
-
-    %% Inspection
-    U ->> F: Request inspection
-    F ->> B: Request inspection start
-    B ->> I: Perform compliance check (farmer+farm+field)
-    I -->> B: Result (pass/fail)
-    B -->> F: Inspection result
-    F ->> U: Display inspection outcome
-
-    %% Certificate
-    alt Passed
-        B ->> C: Generate compliance certificate
-        C -->> B: Certificate issued
-        B -->> F: Certificate info
-        F ->> U: Farmer downloads/view certificate
-    else Failed
-        F ->> U: Show corrective actions
-    end
+   
 
 ##  License
 
