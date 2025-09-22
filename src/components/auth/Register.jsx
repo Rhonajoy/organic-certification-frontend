@@ -79,7 +79,7 @@ const Register = () => {
             Create an account
           </h2>
           <p className="text-gray-500 mb-8">
-            Join our Organic Farmers community! Please fill in your details to get started.
+            Join our Organic Agronomist community! Please fill in your details to get started.
           </p>
 
           <div className="mb-4">
